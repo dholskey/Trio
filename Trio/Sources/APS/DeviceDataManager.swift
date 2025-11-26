@@ -81,11 +81,15 @@ final class BaseDeviceDataManager: DeviceDataManager, Injectable {
 
     var pumpManager: PumpManagerUI? {
         didSet {
-            pumpManager?.pumpManagerDelegate = self
-            pumpManager?.delegateQueue = processQueue
-            rawPumpManager = pumpManager?.rawValue
-            UserDefaults.standard.clearLegacyPumpManagerRawValue()
             if let pumpManager = pumpManager {
+                pumpManager.pumpManagerDelegate = self
+                pumpManager.delegateQueue = processQueue
+
+                /// Since the pump manager has been successfully instantiated from its saved state,
+                /// copy its rawValue to rawPumpManager which will be saved to persistant storage.
+                rawPumpManager = pumpManager.rawValue
+                UserDefaults.standard.clearLegacyPumpManagerRawValue()
+
                 pumpDisplayState.value = PumpDisplayState(name: pumpManager.localizedTitle, image: pumpManager.smallImage)
                 pumpName.send(pumpManager.localizedTitle)
 
