@@ -22,6 +22,8 @@ protocol DeviceDataManager: GlucoseSource {
     var recommendsLoop: PassthroughSubject<Void, Never> { get }
     var bolusTrigger: PassthroughSubject<Bool, Never> { get }
     var manualTempBasal: PassthroughSubject<Bool, Never> { get }
+    var scheduledBasal: PassthroughSubject<Bool?, Never> { get }
+    var suspended: PassthroughSubject<Bool, Never> { get }
     var errorSubject: PassthroughSubject<Error, Never> { get }
     var pumpName: CurrentValueSubject<String, Never> { get }
     var pumpExpiresAtDate: CurrentValueSubject<Date?, Never> { get }
@@ -68,6 +70,8 @@ final class BaseDeviceDataManager: DeviceDataManager, Injectable {
     let errorSubject = PassthroughSubject<Error, Never>()
     let pumpNewStatus = PassthroughSubject<Void, Never>()
     let manualTempBasal = PassthroughSubject<Bool, Never>()
+    let scheduledBasal = PassthroughSubject<Bool?, Never>()
+    let suspended = PassthroughSubject<Bool, Never>()
 
     private let router = TrioApp.resolver.resolve(Router.self)!
     @SyncAccess private var pumpUpdateCancellable: AnyCancellable?
@@ -409,6 +413,22 @@ extension BaseDeviceDataManager: PumpManagerDelegate {
             bolusTrigger.send(true)
         } else {
             bolusTrigger.send(false)
+        }
+
+        switch status.basalDeliveryState {
+        case let .active(at):
+            if at == .distantPast {
+                scheduledBasal.send(nil) // pump is not currently available
+            } else {
+                suspended.send(false)
+                scheduledBasal.send(true)
+            }
+        case .suspended:
+            suspended.send(true)
+            scheduledBasal.send(false)
+        default:
+            suspended.send(false)
+            scheduledBasal.send(false)
         }
 
         if status.insulinType != oldStatus.insulinType {
